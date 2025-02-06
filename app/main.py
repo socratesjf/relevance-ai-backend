@@ -5,6 +5,7 @@ from typing import List, Optional
 import os
 from dotenv import load_dotenv
 from relevanceai import RelevanceAI
+from datetime import datetime
 
 # Load environment variables
 load_dotenv()
@@ -33,51 +34,56 @@ except Exception as e:
     raise
 
 # Models
-class Agent(BaseModel):
-    agent_id: str = Field(description="The unique identifier of the agent")
+class AgentDetails(BaseModel):
+    id: str = Field(description="The unique identifier of the agent")
     name: str = Field(description="The name of the agent")
-    description: Optional[str] = Field(default=None, description="The description of the agent")
-
-    model_config = {
-        "json_schema_extra": {
-            "examples": [
-                {
-                    "agent_id": "abc123",
-                    "name": "Sales Agent",
-                    "description": "AI agent for sales qualification"
-                }
-            ]
-        }
-    }
+    status: str = Field(description="Current status of the agent", default="active")
+    lastActive: str = Field(description="Last active timestamp", default="")
+    tasksCompleted: int = Field(description="Number of completed tasks", default=0)
+    successRate: float = Field(description="Success rate of completed tasks", default=0)
+    currentTask: str = Field(description="Current task being processed", default="")
 
 # Routes
 @app.get("/")
 async def root():
     return {"message": "Relevance AI Backend API"}
 
-@app.get("/agents", response_model=List[Agent])
-async def list_agents():
+@app.get("/agents/details", response_model=List[AgentDetails])
+async def get_agents_details():
     try:
         agents = client.agents.list_agents()
-        return [
-            Agent(
-                agent_id=agent.agent_id,
-                name=agent.name,
-                description=getattr(agent, 'description', None)
+        agent_details = []
+        
+        for agent in agents:
+            agent_details.append(
+                AgentDetails(
+                    id=agent.agent_id,
+                    name=agent.metadata.name,  # Access name from metadata object
+                    status="active",
+                    lastActive="",
+                    tasksCompleted=0,
+                    successRate=0,
+                    currentTask=""
+                )
             )
-            for agent in agents
-        ]
+        
+        return agent_details
     except Exception as e:
+        print(f"Error in get_agents_details: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
 
-@app.get("/agents/{agent_id}", response_model=Agent)
+@app.get("/agents/{agent_id}", response_model=AgentDetails)
 async def get_agent(agent_id: str):
     try:
         agent = client.agents.retrieve_agent(agent_id=agent_id)
-        return Agent(
-            agent_id=agent.agent_id,
-            name=agent.name,
-            description=getattr(agent, 'description', None)
+        return AgentDetails(
+            id=agent.agent_id,
+            name=agent.metadata.name,  # Access name from metadata object
+            status="active",
+            lastActive="",
+            tasksCompleted=0,
+            successRate=0,
+            currentTask=""
         )
     except Exception as e:
         raise HTTPException(status_code=404, detail=f"Agent not found: {str(e)}")
