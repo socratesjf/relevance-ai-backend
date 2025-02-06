@@ -1,6 +1,6 @@
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from typing import List, Optional
 import os
 from dotenv import load_dotenv
@@ -34,9 +34,21 @@ except Exception as e:
 
 # Models
 class Agent(BaseModel):
-    agent_id: str
-    name: str
-    description: Optional[str] = None
+    agent_id: str = Field(description="The unique identifier of the agent")
+    name: str = Field(description="The name of the agent")
+    description: Optional[str] = Field(default=None, description="The description of the agent")
+
+    model_config = {
+        "json_schema_extra": {
+            "examples": [
+                {
+                    "agent_id": "abc123",
+                    "name": "Sales Agent",
+                    "description": "AI agent for sales qualification"
+                }
+            ]
+        }
+    }
 
 # Routes
 @app.get("/")
@@ -58,15 +70,15 @@ async def list_agents():
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-@app.get("/agents/{agent_id}")
+@app.get("/agents/{agent_id}", response_model=Agent)
 async def get_agent(agent_id: str):
     try:
         agent = client.agents.retrieve_agent(agent_id=agent_id)
-        return {
-            "agent_id": agent.agent_id,
-            "name": agent.name,
-            "description": getattr(agent, 'description', None)
-        }
+        return Agent(
+            agent_id=agent.agent_id,
+            name=agent.name,
+            description=getattr(agent, 'description', None)
+        )
     except Exception as e:
         raise HTTPException(status_code=404, detail=f"Agent not found: {str(e)}")
 
